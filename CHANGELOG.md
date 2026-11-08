@@ -21,6 +21,7 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - Phone calls through Twilio Media Streams: inbound `/twilio/voice`, outbound `POST /api/call`.
 - SQLite call log, plus `GET /api/sessions` and `GET /api/usage`. Each API key only sees its own calls.
 - Dashboard (`web/dashboard.html`): usage, calls, transcripts, recordings.
+- Dashboard: filter the calls table by status (all / active / ended) and channel (all / webrtc / phone), client-side.
 - Time-limited TURN credentials (`TURN_SECRET`). Session create returns `ice_servers`.
 - Deploy profiles: `https` (Caddy), `turn` (coturn), `monitoring` (Prometheus + Grafana).
 - Browser SDK on npm: `npm i voxwire`.

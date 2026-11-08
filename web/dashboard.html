@@ -31,6 +31,9 @@
   input { background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: inherit; min-height: 44px; }
   .btn { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 600; cursor: pointer; }
   .btn.ghost { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); }
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .filters label { grid-auto-flow: column; align-items: center; gap: 8px; }
+  select { background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; min-height: 36px; }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   .stat .v { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stat .k { color: var(--muted); font-size: 13px; }
@@ -87,6 +90,14 @@
 
   <section class="card">
     <h2>Calls <button class="btn ghost" id="refresh" type="button" style="float:right;min-height:32px">Refresh</button></h2>
+    <div class="filters" role="group" aria-label="Filter calls">
+      <label>Status
+        <select id="fStatus"><option value="">All</option><option value="active">Active</option><option value="ended">Ended</option></select>
+      </label>
+      <label>Channel
+        <select id="fChannel"><option value="">All</option><option value="webrtc">WebRTC</option><option value="phone">Phone</option></select>
+      </label>
+    </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Started</th><th>Status</th><th>Channel</th><th>Provider</th><th>Duration</th><th>End reason</th><th>Session</th></tr></thead>
       <tbody id="rows"><tr><td colspan="7" class="muted">Connect to a server to see calls.</td></tr></tbody>
@@ -119,6 +130,16 @@
   const fmtTime = t => t ? new Date(t * 1000).toLocaleString() : '–';
   const fmtDur = s => s ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : '–';
 
+  let calls = [];
+
+  function renderCalls() {
+    const status = $('fStatus').value, channel = $('fChannel').value;
+    const shown = calls.filter(c => (!status || c.status === status) && (!channel || (c.channel || 'webrtc') === channel));
+    const empty = calls.length ? 'No calls match these filters.' : 'No calls yet.';
+    $('rows').replaceChildren(...(shown.length ? shown.map(row) : [Object.assign(el('tr'), { innerHTML: `<td colspan="7" class="muted">${empty}</td>` })]));
+    return shown.length;
+  }
+
   async function load() {
     $('msg').className = 'muted'; $('msg').textContent = 'Loading…';
     try {
@@ -131,9 +152,9 @@
       $('bars').replaceChildren(...usage.per_day.map(d => {
         const b = el('i'); b.style.height = (100 * (d.minutes || 0) / max) + '%'; b.title = `${d.day}: ${d.minutes} min, ${d.calls} calls`; return b;
       }));
-      const calls = [...list.active, ...list.recent];
-      $('rows').replaceChildren(...(calls.length ? calls.map(row) : [Object.assign(el('tr'), { innerHTML: '<td colspan="7" class="muted">No calls yet.</td>' })]));
-      $('msg').textContent = `Connected · ${calls.length} calls`;
+      calls = [...list.active, ...list.recent];
+      const shown = renderCalls();
+      $('msg').textContent = `Connected · ${shown === calls.length ? calls.length : shown + ' of ' + calls.length} calls`;
     } catch (e) {
       $('msg').className = 'err'; $('msg').textContent = 'Could not load: ' + e.message;
     }
@@ -170,6 +191,10 @@
 
   $('conn').onsubmit = e => { e.preventDefault(); store.set('vx.url', $('url').value); try { sessionStorage.setItem('vx.key', $('key').value); } catch {} load(); };
   $('refresh').onclick = load;
+  $('fStatus').onchange = $('fChannel').onchange = () => {
+    const shown = renderCalls();
+    if (calls.length) $('msg').textContent = `Connected · ${shown === calls.length ? calls.length : shown + ' of ' + calls.length} calls`;
+  };
   if (store.get('vx.url')) load();
 </script>
 </body>

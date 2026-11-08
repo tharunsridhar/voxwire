@@ -3,7 +3,7 @@
 Open `web/dashboard.html` (served at http://localhost:3000/dashboard.html with `docker compose up`). Enter your server URL and an API key to see:
 
 - calls and minutes over the last 30 days, the active calls, and a minutes-per-day chart
-- recent calls with channel, provider, duration and end reason
+- recent calls with channel, provider, duration and end reason, which you can filter by status (all / active / ended) and channel (all / webrtc / phone)
 - each call's transcript and recordings
 
 The data comes from the call log, a SQLite file in `DATA_DIR`, through these endpoints:
