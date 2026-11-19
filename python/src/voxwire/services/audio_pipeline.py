@@ -29,6 +29,7 @@ class AudioPipeline:
             tools=session.tools,
             on_tool_call=self._tool_call if session.tools else None,
             on_transcript=lambda role, text: sessions.add_transcript(session, role, text),
+            on_interrupt=self._interrupted,
         )
         self.recorder = Recorder(session.id, self.ai.output_rate) if session.record else None
         self._tasks = []
@@ -36,6 +37,12 @@ class AudioPipeline:
     async def _tool_call(self, name: str, args: dict) -> dict:
         logger.info(f"[{self.session_id}] tool call {name}")
         return await webhooks.call_tool(self.session.tool_webhook_url, self.session_id, name, args)
+
+    async def _interrupted(self):
+        """The caller talked over the AI. Transports that buffer audio ahead (phone) can flush it."""
+        clear = getattr(self.pion, "clear_playback", None)
+        if clear:
+            await clear()
 
     async def run(self):
         try:

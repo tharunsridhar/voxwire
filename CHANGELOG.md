@@ -31,6 +31,9 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - `/api/health` no longer exposes the SFU address. It now returns `version` and `active_calls`.
 - The FastAPI `on_event("startup")` hook is replaced by a `lifespan` handler, which removes the deprecation warning. Startup behaviour is unchanged.
 
+### Fixed
+- Phone calls: when the caller talks over the AI, Voxwire now sends Twilio a `clear` event so audio that was already buffered stops playing. The OpenAI client now reports barge-in (`input_audio_buffer.speech_started`) the same way Gemini does.
+
 ## [0.1.0] - 2026-11-06
 
 ### Added

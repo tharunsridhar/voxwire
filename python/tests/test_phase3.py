@@ -257,6 +257,73 @@ def test_bridge_converts_rates():
     assert len(chunks) == 1 and len(chunks[0]) == 160 * 2 * 2  # 8k ulaw -> 16k pcm16
 
 
+def test_bridge_clear_playback_sends_clear_event():
+    sent = []
+
+    class WS:
+        async def send_json(self, m):
+            sent.append(m)
+
+    async def run():
+        b = TwilioBridge(WS())
+        await b.clear_playback()  # no stream yet: nothing to clear
+        b.stream_sid = "MZ1"
+        await b.clear_playback()
+
+    asyncio.run(run())
+    assert sent == [{"event": "clear", "streamSid": "MZ1"}]
+
+
+def test_gemini_interruption_clears_queue_and_notifies():
+    calls = []
+
+    async def on_interrupt():
+        calls.append("interrupted")
+
+    async def run():
+        c = GeminiLiveClient.__new__(GeminiLiveClient)
+        c._response_queue, c.on_transcript, c.on_tool_call, c.on_interrupt = asyncio.Queue(), None, None, on_interrupt
+        await c._response_queue.put(b"stale")
+        sc = NS(interrupted=True, input_transcription=None, output_transcription=None)
+        await c._handle(NS(data=None, server_content=sc, tool_call=None))
+        return c._response_queue.empty()
+
+    assert asyncio.run(run()) is True
+    assert calls == ["interrupted"]
+
+
+def test_openai_speech_started_notifies_interruption():
+    calls = []
+
+    async def on_interrupt():
+        calls.append("interrupted")
+
+    async def run():
+        c = OpenAIRealtimeClient(on_interrupt=on_interrupt)
+        await c.handle({"type": "response.output_audio.delta", "delta": base64.b64encode(b"ab").decode()})
+        await c.handle({"type": "input_audio_buffer.speech_started"})
+        return c._queue.empty()
+
+    assert asyncio.run(run()) is True
+    assert calls == ["interrupted"]
+
+
+def test_pipeline_clears_phone_playback_on_interruption():
+    cleared = []
+
+    class Phone:
+        async def clear_playback(self):
+            cleared.append(1)
+
+    async def run():
+        s = Session("s1", 0)
+        await AudioPipeline(s, Phone(), None, ai=EchoClient())._interrupted()
+        await AudioPipeline(s, object(), None, ai=EchoClient())._interrupted()  # e.g. the SFU: nothing to flush
+
+    asyncio.run(run())
+    assert cleared == [1]
+
+
 def test_phone_endpoints_need_config(client, monkeypatch):
     monkeypatch.setattr(settings, "TWILIO_AUTH_TOKEN", "")
     assert client.post("/twilio/voice").status_code == 503

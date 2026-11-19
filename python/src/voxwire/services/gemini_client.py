@@ -15,13 +15,14 @@ class GeminiLiveClient:
 
     output_rate = GEMINI_OUTPUT_RATE
 
-    def __init__(self, model=None, voice=None, tools=None, on_tool_call=None, on_transcript=None):
+    def __init__(self, model=None, voice=None, tools=None, on_tool_call=None, on_transcript=None, on_interrupt=None):
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY, http_options={"api_version": "v1beta"})
         self.model = model or settings.GEMINI_MODEL
         self.voice = voice
         self.tools = tools or []
         self.on_tool_call = on_tool_call
         self.on_transcript = on_transcript
+        self.on_interrupt = on_interrupt
         self.session = None
         self._stack = contextlib.AsyncExitStack()
         self._response_queue: asyncio.Queue = asyncio.Queue()
@@ -70,6 +71,8 @@ class GeminiLiveClient:
         if sc:
             if sc.interrupted:
                 self._clear_queue()  # user barged in: drop unplayed AI audio
+                if self.on_interrupt:
+                    await self.on_interrupt()
             if self.on_transcript:
                 if sc.input_transcription and sc.input_transcription.text:
                     self.on_transcript("user", sc.input_transcription.text)

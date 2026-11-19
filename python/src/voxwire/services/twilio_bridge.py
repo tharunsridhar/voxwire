@@ -24,13 +24,18 @@ class TwilioBridge:
     def close(self) -> None:
         self._in.put_nowait(None)
 
+    async def clear_playback(self) -> None:
+        """Tell Twilio to drop audio it has buffered but not played yet."""
+        if self.stream_sid:
+            await self.ws.send_json({"event": "clear", "streamSid": self.stream_sid})
+
     async def stream_audio_from_pion(self, session_id: str):
         while (chunk := await self._in.get()) is not None:
             yield chunk
 
     async def stream_audio_to_pion(self, session_id: str, pcm_stream, sample_rate: int):
-        # shortcut: audio is sent as fast as the AI makes it and Twilio buffers it, so barge-in
-        # doesn't cut audio already sent; send {"event": "clear"} on interruption to fix.
+        # Audio is sent as fast as the AI makes it and Twilio buffers it; clear_playback() flushes
+        # that buffer when the caller barges in.
         async for chunk in pcm_stream:
             payload = base64.b64encode(pcm16_to_ulaw(resample_pcm16(chunk, sample_rate, 8000))).decode()
             await self.ws.send_json({"event": "media", "streamSid": self.stream_sid, "media": {"payload": payload}})

@@ -17,12 +17,13 @@ OPENAI_RATE = 24000
 class OpenAIRealtimeClient:
     output_rate = OPENAI_RATE
 
-    def __init__(self, model=None, voice=None, tools=None, on_tool_call=None, on_transcript=None):
+    def __init__(self, model=None, voice=None, tools=None, on_tool_call=None, on_transcript=None, on_interrupt=None):
         self.model = model or settings.OPENAI_REALTIME_MODEL
         self.voice = voice or "alloy"
         self.tools = tools or []
         self.on_tool_call = on_tool_call
         self.on_transcript = on_transcript
+        self.on_interrupt = on_interrupt
         self.ws = None
         self._queue: asyncio.Queue = asyncio.Queue()
         self._recv_task = None
@@ -69,6 +70,8 @@ class OpenAIRealtimeClient:
         elif t == "input_audio_buffer.speech_started":
             while not self._queue.empty():  # barge-in: drop unplayed AI audio
                 self._queue.get_nowait()
+            if self.on_interrupt:
+                await self.on_interrupt()
         elif t == "conversation.item.input_audio_transcription.completed" and self.on_transcript:
             self.on_transcript("user", ev.get("transcript", ""))
         elif t in ("response.output_audio_transcript.done", "response.audio_transcript.done") and self.on_transcript:
